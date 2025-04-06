@@ -16,9 +16,10 @@ openai_ef = embedding_functions.OpenAIEmbeddingFunction(
     model_name="text-embedding-ada-002"
 )
 
+
 def create_vector_store(docs, names):
     client = chromadb.Client()
-    collection = client.create_collection(name="resumes", embedding_function=openai_ef)
+    collection = client.get_or_create_collection(name="resumes", embedding_function=openai_ef)
     for i, doc in enumerate(docs):
         collection.add(documents=[doc], ids=[str(i)], metadatas=[{"name": names[i]}])
     return collection
