@@ -1,3 +1,11 @@
+
+import sys
+import pysqlite3
+sys.modules["sqlite3"] = sys.modules["pysqlite3"]
+
+
+
+
 import chromadb
 from chromadb.utils import embedding_functions
 from openai import OpenAI
