@@ -1,25 +1,21 @@
-import openai
-import os
-openai.api_key = os.getenv("OPENAI_API_KEY")
+import google.generativeai as genai
 
-def generate_hr_questions(job_desc, resume_content):
-    prompt = f"""You are an HR interviewer.
-Based on the following job description and candidate resume, generate 5 relevant and insightful HR interview questions.
+def generate_hr_questions_rag(resume_chunk, job_description, api_key):
+    genai.configure(api_key=api_key)
+
+    prompt = f"""
+You are an AI HR Assistant.
+
+Generate 5 personalized HR interview questions based on the following resume content and job description.
+
+Resume (Relevant Extracted Content):
+{resume_chunk}
 
 Job Description:
-{job_desc}
+{job_description}
 
-Resume:
-{resume_content}
-
-Questions:"""
-
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=300,
-        temperature=0.7
-    )
-
-    output = response.choices[0].message.content
-    return output.strip().split("\n")
+Only provide the questions as bullet points.
+"""
+    model = genai.GenerativeModel("gemini-2.0-flash-lite")
+    response = model.generate_content(prompt)
+    return response.text
