@@ -1,8 +1,8 @@
 streamlit
-openai
-chromadb
 PyPDF2
-tiktoken
-python-dotenv
 langchain
-pysqlite3-binary
+langchain-community
+langchain-google-genai
+google-generativeai
+faiss-cpu
+numpy
