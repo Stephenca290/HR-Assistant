@@ -1,33 +1,49 @@
 import streamlit as st
-import os
-from utils.pdf_utils import extract_text_from_pdf
-from utils.rag_utils import create_vector_store, query_resume_similarity
-from utils.question_generator import generate_hr_questions
+from utils.pdf_parser import extract_text_from_pdf
+from utils.rag_utils import (
+    create_vector_store_per_resume,
+    retrieve_relevant_chunks,
+    rank_resumes_by_similarity
+)
+from utils.question_generator import generate_hr_questions_rag
+import tempfile
 
 st.set_page_config(page_title="AI HR Assistant", layout="wide")
+st.title("🤖 AI-Powered HR Assistant")
 
-st.title("🤖 AI HR Assistant")
-st.markdown("Upload resumes (PDF) and enter a job description to rank candidates and generate HR interview questions.")
+api_key = st.secrets["api_key"]
 
-uploaded_files = st.file_uploader("Upload Resume PDFs", type=["pdf"], accept_multiple_files=True)
-job_description = st.text_area("Paste Job Description", height=200)
+st.sidebar.header("Step 1: Input Job Description")
+jd_text_input = st.sidebar.text_area("Paste Job Description", height=300)
 
-if st.button("Analyze"):
-    with st.spinner("Processing resumes..."):
-        resume_texts = [extract_text_from_pdf(file) for file in uploaded_files]
-        resume_names = [file.name for file in uploaded_files]
+st.sidebar.header("Step 2: Upload Resumes")
+resume_files = st.sidebar.file_uploader("Upload Resumes (PDF)", type=["pdf"], accept_multiple_files=True)
 
-        # Step 1: Create Chroma vector store
-        vectordb = create_vector_store(resume_texts, resume_names)
+if st.sidebar.button("Analyze"):
+    if jd_text_input and resume_files:
+        with st.spinner("Processing resumes..."):
+            resumes_texts = [extract_text_from_pdf(resume) for resume in resume_files]
+            resume_names = [resume.name for resume in resume_files]
 
-        # Step 2: Query using job description
-        ranked_resumes = query_resume_similarity(vectordb, job_description)
+            # Vector DB Creation
+            create_vector_store_per_resume(resumes_texts, resume_names, api_key)
 
-        # Step 3: Generate questions
-        st.subheader("📊 Ranked Resumes & HR Questions")
-        for i, (name, score, content) in enumerate(ranked_resumes):
-            st.markdown(f"### {i+1}. {name} (Score: {score:.2f})")
-            questions = generate_hr_questions(job_description, content)
-            st.markdown("**Suggested Questions:**")
-            for q in questions:
-                st.markdown(f"- {q}")
+            # Retrieve RAG chunks
+            relevant_chunks = retrieve_relevant_chunks(jd_text_input, resume_names, api_key)
+
+            # Ranking
+            ranking = rank_resumes_by_similarity(jd_text_input, resumes_texts, resume_names, api_key)
+
+        st.subheader("📊 Resume Ranking by Similarity")
+        for rank, (name, score) in enumerate(ranking, 1):
+            st.markdown(f"{rank}. **{name}** - Similarity Score: `{score:.2f}`")
+
+        st.subheader("🎯 HR Interview Questions")
+        for name in resume_names:
+            st.markdown(f"**{name}**")
+            questions = generate_hr_questions_rag(relevant_chunks[name], jd_text_input, api_key)
+            for q in questions.strip().split("\n"):
+                if q.strip().endswith("?"):
+                    st.write(f"- {q.strip('-• ').strip()}")
+    else:
+        st.warning("Please enter job description and upload at least one resume.")
